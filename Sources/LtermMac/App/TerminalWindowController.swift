@@ -135,6 +135,15 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         return pane
     }
 
+    /// Opens an ssh + tmux session in a new tab.
+    func openAttached(host: String, command: String) -> TerminalPane {
+        let pane = TerminalPane(id: AppState.shared.allocatePaneID())
+        pane.owner = self
+        pane.startAttached(host: host, command: command)
+        addTab(with: pane)
+        return pane
+    }
+
     /// Shows a Markdown file in a new tab, or split next to the focused pane.
     @discardableResult
     func openMarkdown(_ url: URL, split: Bool, next target: Int? = nil) -> MarkdownPane {
@@ -349,6 +358,21 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func perform(_ action: LeaderAction) {
+        // In an ssh session pane the layout keys drive the remote tmux, so its splits and windows
+        // survive a detach. The sidebar, help and next-agent keys stay local.
+        if let terminal = focusedTerminal, terminal.attach != nil {
+            if case .reconnect = action {
+                terminal.reconnect()
+                return
+            }
+            if !terminal.disconnected, let command = TmuxBridge.command(for: action) {
+                terminal.send(bytes: TmuxBridge.openPrompt)
+                DispatchQueue.main.asyncAfter(deadline: .now() + TmuxBridge.promptDelay) { [weak terminal] in
+                    MainActor.assumeIsolated { terminal?.send(bytes: TmuxBridge.promptInput(for: command)) }
+                }
+                return
+            }
+        }
         switch action {
         case .splitRight: split(.horizontal)
         case .splitDown: split(.vertical)
@@ -369,7 +393,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         case .copyMode: startCopyMode()
         case .agentsSidebar: toggleSidebar()
         case .nextNeedsMe: jumpToNextNeedsMe()
-        case .detach:
+        case .detach, .reconnect:
             NSSound.beep()
         case .cancel:
             break

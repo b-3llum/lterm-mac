@@ -47,6 +47,18 @@ enum ControlHandler {
                 pane.send(bytes: bytes)
             }
             return .null
+        case "attach":
+            guard let host = args["host"]?.string else { throw ControlError("missing host") }
+            let command: String
+            do {
+                command = try TmuxBridge.sshCommand(host: host, session: args["session"]?.string, ssh: args["ssh"]?.string)
+            } catch {
+                throw ControlError("\(error)")
+            }
+            let window = targetPane(request)?.window ?? AppState.shared.activeWindow ?? (NSApp.delegate as! AppDelegate).openWindow()
+            let pane = window.openAttached(host: host, command: command)
+            if request.caller == nil { NSApp.activate(ignoringOtherApps: true) }
+            return ["id": .int(pane.id)]
         case "md.open":
             guard let path = args["path"]?.string else { throw ControlError("missing file") }
             var isFolder: ObjCBool = false

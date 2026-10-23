@@ -66,6 +66,7 @@ public enum CommandParser {
             try args.expectEmpty()
             var request = ControlRequest(cmd: "attach", args: ["host": .string(host)], caller: caller)
             if let session { request.args["session"] = .string(session) }
+            if let ssh = environment["LTERM_SSH"], !ssh.isEmpty { request.args["ssh"] = .string(ssh) }
             return .request(request, .paneID)
         }
 

@@ -11,6 +11,10 @@ final class TerminalPane: NSObject, Pane {
     weak var owner: PaneOwner?
     private(set) var title: String
     private var exited = false
+    /// Set for `lterm --attach` panes: the ssh command, so the pane can reconnect.
+    private(set) var attach: (host: String, command: String)?
+    /// True after an attached pane lost its connection (the pane stays open to reconnect).
+    private(set) var disconnected = false
     /// Set while copy mode is on.
     private(set) var copyMode: CopyModeController?
 
@@ -97,6 +101,23 @@ final class TerminalPane: NSObject, Pane {
         onChange()
     }
 
+    /// Starts an ssh + tmux session (see `TmuxBridge`).
+    func startAttached(host: String, command: String) {
+        attach = (host, command)
+        start(command: command)
+        title = "ssh " + host
+    }
+
+    /// Runs the ssh command again after a dropped connection.
+    func reconnect() {
+        guard let attach, !terminalView.process.running else { return }
+        disconnected = false
+        terminalView.feed(text: "\r\n[lterm: reconnecting to \(attach.host)...]\r\n")
+        start(command: attach.command)
+        title = "ssh " + attach.host
+        owner?.paneTitleChanged(self)
+    }
+
     /// Types a command into the shell and presses Return, so the pane stays open after it ends.
     /// The text waits until the shell has printed its prompt, so the terminal does not echo it twice.
     func type(command: String) {
@@ -171,6 +192,18 @@ extension TerminalPane: @preconcurrency LocalProcessTerminalViewDelegate {
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
         guard !exited else { return }
+        // SwiftTerm passes the raw wait() status. Turn it into a normal exit code.
+        let status = exitCode.map { raw in (raw & 0x7F) == 0 ? (raw >> 8) & 0xFF : 128 + (raw & 0x7F) }
+        // An ssh session that did not end with a clean detach stays open so it can reconnect.
+        if attach != nil && status != 0 {
+            disconnected = true
+            let code = status.map { " (ssh exit code \($0))" } ?? ""
+            // A dropped tmux client cannot clean up: leave the alternate screen, stop mouse reporting, show the cursor.
+            terminalView.feed(text: "\u{1B}[?1049l\u{1B}[?1000l\u{1B}[?1002l\u{1B}[?1003l\u{1B}[?1006l\u{1B}[?25h\u{1B}[0m")
+            terminalView.feed(text: "\r\n\u{1B}[33m[lterm: disconnected\(code). Press \(KeyRouter.shared.leaderLabel) r to reconnect.]\u{1B}[0m\r\n")
+            owner?.paneTitleChanged(self)
+            return
+        }
         exited = true
         owner?.paneExited(self)
     }

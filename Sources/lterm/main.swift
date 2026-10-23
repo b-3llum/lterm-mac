@@ -114,8 +114,20 @@ enum Client {
         return fd
     }
 
+    /// How long to wait for a reply. Waits get their own timeout plus a margin, or no limit.
+    static func replyTimeout(for request: ControlRequest) -> Double? {
+        if request.cmd == "pane.wait" || request.cmd == "browse.wait" {
+            return request.args["timeout"]?.double.map { $0 + 10 }
+        }
+        return 30
+    }
+
     static func exchange(_ fd: Int32, _ request: ControlRequest) -> ControlResponse {
         defer { close(fd) }
+        if let seconds = replyTimeout(for: request) {
+            var timeout = timeval(tv_sec: Int(seconds), tv_usec: 0)
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        }
         do {
             let data = try ControlCodec.encode(request)
             try data.withUnsafeBytes { raw in
@@ -134,6 +146,7 @@ enum Client {
             while true {
                 let count = read(fd, &buffer, buffer.count)
                 if count < 0 && errno == EINTR { continue }
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { fail("lterm did not answer in time") }
                 if count <= 0 { break }
                 reply.append(buffer, count: count)
                 if buffer[count - 1] == 0x0A { break }

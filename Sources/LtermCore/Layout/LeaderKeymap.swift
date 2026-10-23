@@ -8,7 +8,7 @@ public enum LeaderAction: Equatable, Sendable {
     case nextPane, zoom, closePane
     case newTab, nextTab, previousTab, closeTab
     case goToTab(Int)
-    case copyMode, search, agentsSidebar, nextNeedsMe, help, detach
+    case copyMode, search, agentsSidebar, nextNeedsMe, help, detach, reconnect
     case cancel
 }
 
@@ -52,6 +52,7 @@ public enum LeaderKeymap {
             case "u": return .nextNeedsMe
             case "?": return .help
             case "d": return .detach
+            case "r": return .reconnect
             case "1", "2", "3", "4", "5", "6", "7", "8", "9":
                 return .goToTab(Int(text)!)
             default:
@@ -76,7 +77,7 @@ public enum LeaderKeymap {
         ("/", "search scrollback"),
         ("a", "agents sidebar"),
         ("u", "next agent that needs you"),
-        ("d", "detach (ssh session panes)"),
+        ("d / r", "detach / reconnect (ssh sessions)"),
         ("?", "this help"),
     ]
 }
