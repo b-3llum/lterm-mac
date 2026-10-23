@@ -62,6 +62,9 @@ enum ControlHandler {
             guard let name = args["state"]?.string, let state = AgentState(rawValue: name) else {
                 throw ControlError("unknown state")
             }
+            if args["keepDone"]?.bool == true && AgentStore.shared.status(of: found.pane.id).state == .done {
+                return .null
+            }
             AgentStore.shared.set(pane: found.pane.id, state: state, agent: args["agent"]?.string, message: args["message"]?.string)
             return .null
         default:

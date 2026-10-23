@@ -24,6 +24,7 @@ final class TerminalPane: NSObject, Pane {
         title = (Shell.loginShell as NSString).lastPathComponent
         super.init()
         terminalView.processDelegate = self
+        terminalView.onUserInput = { [weak self] data in self?.userTyped(data) }
         terminalView.font = Settings.font
         terminalView.optionAsMetaKey = true
         registerNotificationHandlers()
@@ -102,6 +103,15 @@ final class TerminalPane: NSObject, Pane {
         }
     }
 
+    /// Codex only reports finished turns, so pressing Return in a Codex pane that is done counts as working.
+    private func userTyped(_ data: ArraySlice<UInt8>) {
+        guard data.contains(0x0D) else { return }
+        let status = AgentStore.shared.status(of: id)
+        if status.agent == "codex", status.state == .done || status.state == .idle {
+            AgentStore.shared.set(pane: id, state: .working, agent: nil, message: nil)
+        }
+    }
+
     /// When the program last printed something.
     var lastOutput: Date { terminalView.lastOutput }
 
@@ -132,13 +142,14 @@ final class TerminalPane: NSObject, Pane {
         return rows.suffix(max(lines, 1)).joined(separator: "\n")
     }
 
-    /// Types text into the program as if it was pasted from the keyboard.
+    /// Types text into the program. Goes straight to the process, so it does not count as the user typing.
     func send(text: String) {
-        terminalView.send(txt: text)
+        send(bytes: Array(text.utf8))
     }
 
     func send(bytes: [UInt8]) {
-        terminalView.send(data: bytes[...])
+        guard terminalView.process.running else { return }
+        terminalView.process.send(data: bytes[...])
     }
 }
 
@@ -163,6 +174,8 @@ extension TerminalPane: @preconcurrency LocalProcessTerminalViewDelegate {
 /// SwiftTerm's local process view, subclassed so lterm can track output for `pane wait --idle`.
 final class LtermTerminalView: LocalProcessTerminalView {
     private(set) var lastOutput = Date()
+    /// Called with bytes the user typed (not bytes sent by `lterm pane send`).
+    var onUserInput: ((ArraySlice<UInt8>) -> Void)?
     private var sawOutput = false
     private var quietActions: [() -> Void] = []
     private var quietTimer: Timer?
@@ -172,6 +185,11 @@ final class LtermTerminalView: LocalProcessTerminalView {
         sawOutput = true
         super.dataReceived(slice: slice)
         if !quietActions.isEmpty { scheduleQuietCheck(after: 0.15) }
+    }
+
+    override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        onUserInput?(data)
+        super.send(source: source, data: data)
     }
 
     /// Runs `action` once the program has printed something and then gone quiet for a moment

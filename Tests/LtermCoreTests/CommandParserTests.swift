@@ -75,6 +75,11 @@ final class CommandParserTests: XCTestCase {
                        "outside lterm the state command is a quiet no-op")
         XCTAssertEqual(try request(["pane", "state", "idle", "--pane", "2"]).0.args["id"], 2)
         assertError(["pane", "state", "sleepy"], contains: "usage")
+        let codex = try request(["pane", "state", "done", "--agent", "codex", #"{"type":"agent-turn-complete"}"#], env: inPane).0
+        XCTAssertEqual(codex.args["state"], "done", "the JSON payload Codex appends is ignored")
+        assertError(["pane", "state", "done", "extra"], contains: "usage")
+        XCTAssertEqual(try request(["pane", "state", "none", "--keep-done"], env: inPane).0.args["keepDone"], true)
+        XCTAssertEqual(try CommandParser.parse(["install", "--force"]), .install(directory: nil, force: true))
     }
 
     func testCloseFocusAndIDs() throws {

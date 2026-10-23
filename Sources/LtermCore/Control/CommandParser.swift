@@ -31,7 +31,7 @@ public enum ParsedCommand: Equatable, Sendable {
     /// Add, remove or show agent hooks. Target is "claude", "codex" or nil for all.
     case integration(IntegrationAction, String?)
     /// Link the CLI into a folder on PATH.
-    case install(directory: String?)
+    case install(directory: String?, force: Bool)
 }
 
 public struct ParseError: Error, Equatable, CustomStringConvertible {
@@ -96,8 +96,9 @@ public enum CommandParser {
             return .integration(action, target)
         case "install":
             let directory = try args.value("--dir")
+            let force = args.flag("--force")
             try args.expectEmpty()
-            return .install(directory: directory)
+            return .install(directory: directory, force: force)
         case "keys":
             return .help(Usage.keys)
         default:
@@ -177,8 +178,12 @@ public enum CommandParser {
         case "state":
             let agent = try args.value("--agent", "-a")
             let message = try args.value("--message", "-m")
+            let fromHook = args.flag("--from-hook")
+            let keepDone = args.flag("--keep-done")
             let target = try args.value("--pane", "-p")
-            let rest = try args.positionals()
+            var rest = try args.positionals()
+            // Codex's `notify` command appends a JSON payload as the last argument. Ignore it.
+            if rest.count == 2, rest[1].hasPrefix("{") { rest.removeLast() }
             guard rest.count == 1, let state = AgentState(rawValue: rest[0]) else {
                 throw ParseError("usage: lterm pane state working|blocked|done|idle|none [--agent NAME] [--message TEXT]")
             }
@@ -189,6 +194,10 @@ public enum CommandParser {
             var values: [String: JSONValue] = ["id": .int(id), "state": .string(state.rawValue)]
             if let agent { values["agent"] = .string(agent) }
             if let message { values["message"] = .string(message) }
+            // The CLI reads the hook's stdin JSON and turns this into a message before sending.
+            if fromHook { values["fromHook"] = true }
+            // Leave a finished pane showing "done" (used when an agent session ends right after its turn).
+            if keepDone { values["keepDone"] = true }
             return .request(request("pane.state", values), .none)
         default:
             throw ParseError("unknown pane command '\(sub)'. Run 'lterm pane --help'.")

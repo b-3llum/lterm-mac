@@ -29,8 +29,8 @@ case .help(let text):
 case .version:
     print("lterm \(Lterm.version)")
     exit(0)
-case .install(let directory):
-    Installer.install(into: directory)
+case .install(let directory, let force):
+    Installer.install(into: directory, force: force)
     exit(0)
 case .integration(let action, let target):
     do {
@@ -39,7 +39,13 @@ case .integration(let action, let target):
         fail("\(error)")
     }
     exit(0)
-case .request(let request, let style):
+case .request(var request, let style):
+    if request.args.removeValue(forKey: "fromHook") != nil {
+        // Agent hooks pass a JSON description of what they are asking on stdin.
+        if isatty(STDIN_FILENO) == 0, let message = ClaudeHooks.message(fromHookInput: FileHandle.standardInput.readDataToEndOfFile()) {
+            request.args["message"] = .string(message)
+        }
+    }
     let response = Client.send(request)
     guard response.ok else { fail(response.error ?? "unknown error") }
     Output.print(response.result ?? .null, style: style)
@@ -235,15 +241,20 @@ enum Installer {
         return String(executablePath[..<range.lowerBound]) + ".app"
     }
 
-    static func install(into directory: String?) {
+    static func install(into directory: String?, force: Bool) {
         let folder = ((directory ?? "~/.local/bin") as NSString).expandingTildeInPath
         let link = (folder as NSString).appendingPathComponent("lterm")
         let fm = FileManager.default
+        let existingLink = try? fm.destinationOfSymbolicLink(atPath: link)
+        let exists = existingLink != nil || fm.fileExists(atPath: link)
+        // Only replace our own link. Anything else (like the original lterm) needs --force.
+        if exists && !force && !(existingLink?.contains("lterm-mac.app/") ?? false) {
+            fail("\(link) already exists and is not an lterm-mac link (maybe the original lterm). " +
+                 "Use 'lterm install --dir DIR' for another folder, or --force to replace it.")
+        }
         do {
             try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
-            if (try? fm.destinationOfSymbolicLink(atPath: link)) != nil || fm.fileExists(atPath: link) {
-                try fm.removeItem(atPath: link)
-            }
+            if exists { try fm.removeItem(atPath: link) }
             try fm.createSymbolicLink(atPath: link, withDestinationPath: executablePath)
         } catch {
             fail("could not link \(link): \(error)")
