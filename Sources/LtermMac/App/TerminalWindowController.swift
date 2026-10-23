@@ -120,6 +120,21 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         return pane
     }
 
+    /// Splits a pane in any tab of this window for the control socket. `run` is typed into the new shell.
+    /// With `focus` false the keyboard stays where it was.
+    func splitPane(_ target: Int, axis: SplitAxis, run: String?, focus shouldFocus: Bool) -> TerminalPane {
+        let tab = tabs.first { $0.panes[target] != nil } ?? currentTab!
+        let directory = (tab.panes[target] as? TerminalPane)?.currentDirectory
+        let pane = makeTerminal(command: nil, directory: directory)
+        let previous = tab.focused
+        insert(pane, splitting: target, axis: axis, in: tab)
+        if !shouldFocus {
+            if tab === currentTab { focus(previous) } else { tab.focused = previous }
+        }
+        if let run { pane.type(command: run) }
+        return pane
+    }
+
     /// Puts any pane next to `target` in `tab` and focuses it.
     func insert(_ pane: Pane, splitting target: Int, axis: SplitAxis, in tab: Tab) {
         pane.owner = self

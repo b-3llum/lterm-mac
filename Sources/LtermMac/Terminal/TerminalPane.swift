@@ -49,7 +49,8 @@ final class TerminalPane: NSObject, Pane {
         let shell = Shell.loginShell
         let shellName = (shell as NSString).lastPathComponent
         var extra = extraEnvironment
-        extra["LTERM_PANE_ID"] = String(id)
+        extra[Lterm.paneIDEnv] = String(id)
+        if let socket = AppState.shared.socketPath { extra[Lterm.socketEnv] = socket }
         let env = Shell.environment(extra: extra)
         var args: [String] = []
         if let command {
@@ -88,6 +89,25 @@ final class TerminalPane: NSObject, Pane {
         }
         copyMode = controller
         onChange()
+    }
+
+    /// Types a command into the shell and presses Return, so the pane stays open after it ends.
+    /// The text waits until the shell has printed its prompt, so the terminal does not echo it twice.
+    func type(command: String) {
+        title = command
+        owner?.paneTitleChanged(self)
+        terminalView.whenQuiet { [weak self] in
+            self?.send(text: command)
+            self?.send(bytes: [0x0D])
+        }
+    }
+
+    /// When the program last printed something.
+    var lastOutput: Date { terminalView.lastOutput }
+
+    var size: (cols: Int, rows: Int) {
+        let terminal = terminalView.getTerminal()
+        return (terminal.cols, terminal.rows)
     }
 
     func setFont(_ font: NSFont) {
@@ -140,5 +160,37 @@ extension TerminalPane: @preconcurrency LocalProcessTerminalViewDelegate {
     }
 }
 
-/// SwiftTerm's local process view, subclassed so lterm can hook output and keys.
-final class LtermTerminalView: LocalProcessTerminalView {}
+/// SwiftTerm's local process view, subclassed so lterm can track output for `pane wait --idle`.
+final class LtermTerminalView: LocalProcessTerminalView {
+    private(set) var lastOutput = Date()
+    private var sawOutput = false
+    private var quietActions: [() -> Void] = []
+    private var quietTimer: Timer?
+
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        lastOutput = Date()
+        sawOutput = true
+        super.dataReceived(slice: slice)
+        if !quietActions.isEmpty { scheduleQuietCheck(after: 0.15) }
+    }
+
+    /// Runs `action` once the program has printed something and then gone quiet for a moment
+    /// (a shell showing its first prompt). Gives up waiting after 3 seconds.
+    func whenQuiet(_ action: @escaping () -> Void) {
+        quietActions.append(action)
+        scheduleQuietCheck(after: sawOutput ? 0.15 : 3)
+    }
+
+    private func scheduleQuietCheck(after delay: TimeInterval) {
+        quietTimer?.invalidate()
+        quietTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.runQuietActions() }
+        }
+    }
+
+    private func runQuietActions() {
+        let actions = quietActions
+        quietActions.removeAll()
+        for action in actions { action() }
+    }
+}

@@ -24,6 +24,11 @@ enum Shell {
         env["COLORTERM"] = "truecolor"
         env["TERM_PROGRAM"] = "lterm"
         if env["LANG"] == nil { env["LANG"] = "en_US.UTF-8" }
+        // The bundled `lterm` tool comes first on PATH so programs in panes can always run it.
+        if let resources = Bundle.main.resourcePath {
+            let bin = resources + "/bin"
+            env["PATH"] = bin + ":" + (env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
+        }
         for (key, value) in extra { env[key] = value }
         return env.map { "\($0.key)=\($0.value)" }.sorted()
     }

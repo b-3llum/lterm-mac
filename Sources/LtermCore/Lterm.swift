@@ -18,8 +18,10 @@ public enum Lterm {
     }
 
     /// The control socket path: `$LTERM_SOCKET` if set, otherwise the default location.
+    /// Values that are not absolute paths are ignored. The original lterm (Windows and Linux)
+    /// uses the same variable for a TCP address, and both may be installed.
     public static func socketPath(environment: [String: String] = ProcessInfo.processInfo.environment) -> String {
-        if let path = environment[socketEnv], !path.isEmpty { return path }
+        if let path = environment[socketEnv], path.hasPrefix("/") { return path }
         return supportDirectory.appendingPathComponent("lterm.sock").path
     }
 }

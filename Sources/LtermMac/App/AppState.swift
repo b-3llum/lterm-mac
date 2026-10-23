@@ -6,6 +6,8 @@ final class AppState {
     static let shared = AppState()
 
     private(set) var windows: [TerminalWindowController] = []
+    /// The control socket path once the server is listening.
+    var socketPath: String?
     private var nextPaneID = 1
     private var nextTabID = 1
 
