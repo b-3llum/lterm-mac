@@ -19,9 +19,20 @@ enum Integrations {
         environment["CODEX_HOME"].map { ($0 as NSString).expandingTildeInPath } ?? home + "/.codex"
     }
 
-    static var claudeSettings: String { claudeDirectory + "/settings.json" }
+    /// Config paths with symlinks resolved, so a settings file linked from a dotfiles repo stays a link.
+    static var claudeSettings: String { (claudeDirectory + "/settings.json" as NSString).resolvingSymlinksInPath }
     static var claudeSkill: String { claudeDirectory + "/skills/lterm-mac-panes/SKILL.md" }
-    static var codexConfig: String { codexDirectory + "/config.toml" }
+    static var codexConfig: String { (codexDirectory + "/config.toml" as NSString).resolvingSymlinksInPath }
+
+    /// The file's text, "" when it does not exist yet. Fails (instead of guessing) when it cannot be read.
+    static func readText(_ path: String) throws -> String {
+        guard FileManager.default.fileExists(atPath: path) else { return "" }
+        do {
+            return try String(contentsOfFile: path, encoding: .utf8)
+        } catch {
+            throw Failure("could not read \(path) as UTF-8 text, nothing was changed: \(error.localizedDescription)")
+        }
+    }
 
     static func run(_ action: IntegrationAction, target: String?, lterm: String) throws {
         switch (action, target) {
@@ -85,7 +96,7 @@ enum Integrations {
     // MARK: Codex
 
     static func installCodex(lterm: String) throws {
-        let current = (try? String(contentsOfFile: codexConfig, encoding: .utf8)) ?? ""
+        let current = try readText(codexConfig)
         let updated: String
         do {
             updated = try CodexConfig.install(into: current, lterm: lterm)
@@ -101,7 +112,8 @@ enum Integrations {
     }
 
     static func uninstallCodex() throws {
-        guard let current = try? String(contentsOfFile: codexConfig, encoding: .utf8), CodexConfig.isInstalled(current) else {
+        let current = try readText(codexConfig)
+        guard CodexConfig.isInstalled(current) else {
             print("Codex: no lterm notify command in \(codexConfig)")
             return
         }
@@ -145,9 +157,13 @@ enum Integrations {
     }
 
     static func write(_ data: Data, to path: String) throws {
+        let fm = FileManager.default
         let folder = (path as NSString).deletingLastPathComponent
-        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        let oldPermissions = (try? fm.attributesOfItem(atPath: path))?[.posixPermissions]
         try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+        // An atomic write makes a new file: give it back the old permissions (or rw-r--r--).
+        try fm.setAttributes([.posixPermissions: oldPermissions ?? 0o644], ofItemAtPath: path)
     }
 
     static func warnIfTemporary(_ lterm: String) {

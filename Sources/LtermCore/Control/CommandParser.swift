@@ -315,7 +315,9 @@ public enum CommandParser {
     }
 
     private static func positiveNumber(_ text: String, _ name: String) throws -> Double {
-        guard let value = Double(text), value >= 0 else { throw ParseError("\(name) needs a number of seconds") }
+        guard let value = Double(text), value.isFinite, value >= 0, value <= 31_536_000 else {
+            throw ParseError("\(name) needs a number of seconds (up to one year)")
+        }
         return value
     }
 

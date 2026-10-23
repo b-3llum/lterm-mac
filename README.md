@@ -225,7 +225,12 @@ Decisions I made along the way:
 - **Control socket.** A Unix domain socket at `~/Library/Application Support/lterm-mac/lterm.sock`
   (file mode 0600, folder 0700). Each connection sends one JSON line and gets one JSON line back.
   `pane wait` keeps the connection open and checks every 100 ms. The CLI gives up after 30 seconds for
-  normal commands. The app removes the socket when it quits or gets SIGTERM.
+  normal commands. The app removes the socket when it quits or gets SIGTERM. If a client goes away (for
+  example a killed `pane wait`), the app stops working on its request. A second running copy of the app
+  does not take over the socket of the first one.
+- **Signals.** The app catches SIGTERM, SIGINT, SIGHUP and SIGPIPE with small handlers instead of ignoring
+  them, because ignored signals would be passed on to every program started in a pane (and then Ctrl+C
+  would not work there).
 - **Panes get** `LTERM_PANE_ID`, `LTERM_SOCKET`, `TERM_PROGRAM=lterm` and the app's bundled `bin` folder on
   `PATH`. The `lterm` tool is a separate build target copied into `lterm-mac.app/Contents/Resources/bin`.
 - **zsh integration.** zsh panes start with `ZDOTDIR` pointing at a tiny file that loads your own zsh files

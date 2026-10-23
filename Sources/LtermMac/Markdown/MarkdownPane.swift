@@ -12,6 +12,7 @@ final class MarkdownPane: NSObject, Pane {
     private let webView: WKWebView
     private var watcher: DispatchSourceFileSystemObject?
     private var source = ""
+    private var isClosed = false
     private let pageFile: URL
 
     var view: NSView { webView }
@@ -82,8 +83,9 @@ final class MarkdownPane: NSObject, Pane {
                 guard let self else { return }
                 let replaced = !(self.watcher?.data.intersection([.rename, .delete]).isEmpty ?? true)
                 // Give the editor a moment to finish writing.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                     MainActor.assumeIsolated {
+                        guard let self, !self.isClosed else { return }
                         self.render(keepScroll: true)
                         if replaced { self.watch() }
                     }
@@ -117,6 +119,7 @@ final class MarkdownPane: NSObject, Pane {
     }
 
     func close() {
+        isClosed = true
         watcher?.cancel()
         watcher = nil
         try? FileManager.default.removeItem(at: pageFile)

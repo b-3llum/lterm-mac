@@ -4,13 +4,13 @@ import XCTest
 final class TmuxBridgeTests: XCTestCase {
     func testSSHCommand() throws {
         let command = try TmuxBridge.sshCommand(host: "me@box.local", session: nil)
-        XCTAssertTrue(command.hasPrefix("ssh -t 'me@box.local' '"))
+        XCTAssertTrue(command.hasPrefix("ssh -t -- 'me@box.local' '"))
         XCTAssertTrue(command.contains("exec tmux new-session -A -s lterm \\; set-option -q prefix2 C-]"))
         XCTAssertTrue(command.contains("tmux is not installed"))
         let remote = command.components(separatedBy: "'me@box.local' ")[1]
         XCTAssertTrue(remote.hasPrefix("'") && remote.hasSuffix("'"))
         XCTAssertFalse(remote.dropFirst().dropLast().contains("'"), "single quotes inside would end the quoted argument")
-        XCTAssertTrue(try TmuxBridge.sshCommand(host: "box", session: "logs", ssh: "ssh -p 2222").hasPrefix("ssh -p 2222 -t 'box'"))
+        XCTAssertTrue(try TmuxBridge.sshCommand(host: "box", session: "logs", ssh: "ssh -p 2222").hasPrefix("ssh -p 2222 -t -- 'box'"))
         XCTAssertTrue(try TmuxBridge.sshCommand(host: "box", session: "logs").contains("-s logs "))
     }
 
@@ -18,6 +18,7 @@ final class TmuxBridgeTests: XCTestCase {
         XCTAssertThrowsError(try TmuxBridge.sshCommand(host: "box; rm -rf ~", session: nil))
         XCTAssertThrowsError(try TmuxBridge.sshCommand(host: "a'b", session: nil))
         XCTAssertThrowsError(try TmuxBridge.sshCommand(host: "", session: nil))
+        XCTAssertThrowsError(try TmuxBridge.sshCommand(host: "-oProxyCommand=/tmp/x.sh", session: nil), "no ssh options as hosts")
         XCTAssertThrowsError(try TmuxBridge.sshCommand(host: "box", session: "two words"))
     }
 

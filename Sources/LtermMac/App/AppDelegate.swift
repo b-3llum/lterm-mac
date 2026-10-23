@@ -39,7 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppState.shared.socketPath = path
             // `kill` or a logout sends SIGTERM: remove the socket before exiting.
             for number in [SIGTERM, SIGINT, SIGHUP] {
-                signal(number, SIG_IGN)
+                // A no-op handler, not SIG_IGN: ignored signals stay ignored in programs started in
+                // panes (then Ctrl+C would do nothing there), but handlers are reset by exec.
+                var action = sigaction()
+                action.__sigaction_u.__sa_handler = { _ in }
+                sigemptyset(&action.sa_mask)
+                sigaction(number, &action, nil)
                 let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
                 source.setEventHandler { [weak self] in
                     self?.server?.stop()

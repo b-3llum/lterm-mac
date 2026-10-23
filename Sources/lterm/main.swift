@@ -10,7 +10,8 @@ func fail(_ message: String, code: Int32 = 1) -> Never {
     exit(code)
 }
 
-let environment = ProcessInfo.processInfo.environment
+// $PWD can be stale (a parent may chdir without updating it), so use the real working directory.
+let environment = ProcessInfo.processInfo.environment.merging(["PWD": FileManager.default.currentDirectoryPath]) { _, cwd in cwd }
 let parsed: ParsedCommand
 do {
     parsed = try CommandParser.parse(Array(CommandLine.arguments.dropFirst()), environment: environment)
@@ -125,7 +126,7 @@ enum Client {
     static func exchange(_ fd: Int32, _ request: ControlRequest) -> ControlResponse {
         defer { close(fd) }
         if let seconds = replyTimeout(for: request) {
-            var timeout = timeval(tv_sec: Int(seconds), tv_usec: 0)
+            var timeout = timeval(tv_sec: Int(min(seconds, 31_536_000)), tv_usec: 0)
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         }
         do {

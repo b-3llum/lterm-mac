@@ -16,7 +16,7 @@ public enum TmuxBridge {
 
     /// The local shell command that connects. `ssh` may be replaced with `$LTERM_SSH` (for example "ssh -p 2222").
     public static func sshCommand(host: String, session: String?, ssh: String? = nil) throws -> String {
-        guard !host.isEmpty, host.allSatisfy({ !$0.isWhitespace && !"'\"\\;|&$`<>(){}".contains($0) }) else {
+        guard !host.isEmpty, !host.hasPrefix("-"), host.allSatisfy({ !$0.isWhitespace && !"'\"\\;|&$`<>(){}".contains($0) }) else {
             throw InvalidArgument(description: "'\(host)' is not a valid host. Put ssh options in LTERM_SSH instead.")
         }
         let name = session ?? defaultSession
@@ -29,7 +29,7 @@ public enum TmuxBridge {
         let sshPart = (ssh?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 } ?? "ssh"
         // The remote part is wrapped in single quotes, so it must not contain any itself.
         assert(!remote.contains("'"))
-        return "\(sshPart) -t '\(host)' '\(remote)'"
+        return "\(sshPart) -t -- '\(host)' '\(remote)'"
     }
 
     /// The tmux command for a leader key in an attached pane, or nil when lterm handles the key itself.

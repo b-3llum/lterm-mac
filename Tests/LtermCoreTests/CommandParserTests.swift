@@ -66,6 +66,8 @@ final class CommandParserTests: XCTestCase {
         assertError(["pane", "wait", "5"], contains: "usage")
         assertError(["pane", "wait", "5", "--state", "sleeping"], contains: "unknown state")
         assertError(["pane", "wait", "--idle", "x", "5"], contains: "--idle")
+        assertError(["pane", "wait", "5", "--state", "done", "--timeout", "inf"], contains: "--timeout")
+        assertError(["pane", "wait", "5", "--state", "done", "--timeout", "1e19"], contains: "--timeout")
     }
 
     func testState() throws {
