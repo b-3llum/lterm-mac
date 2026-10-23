@@ -240,7 +240,16 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
 
     /// Hook for modes that take over the keyboard (copy mode). Returns true when the key was used.
     func interceptKey(_ event: NSEvent) -> Bool {
-        false
+        guard let copyMode = focusedTerminal?.copyMode else { return false }
+        // Let Cmd shortcuts (Cmd+C, Cmd+W, ...) still reach the menu.
+        if event.modifierFlags.contains(.command) { return false }
+        copyMode.handle(event)
+        return true
+    }
+
+    func startCopyMode() {
+        guard let terminal = focusedTerminal else { return NSSound.beep() }
+        terminal.beginCopyMode { [weak self] in self?.updateTabBar() }
     }
 
     func setKeyIndicator(_ text: String?) {
@@ -272,7 +281,8 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         case .closeTab: closeTab(at: currentIndex)
         case .search: showFind()
         case .help: showHelp()
-        case .copyMode, .agentsSidebar, .nextNeedsMe, .detach:
+        case .copyMode: startCopyMode()
+        case .agentsSidebar, .nextNeedsMe, .detach:
             NSSound.beep()
         case .cancel:
             break
@@ -320,6 +330,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         tabBarModel.selected = currentIndex
         var status: [String] = []
         if let tab = currentTab, tab.zoomed != nil { status.append("zoom") }
+        if let copyMode = focusedTerminal?.copyMode { status.append(copyMode.indicator) }
         if let keyIndicator { status.append(keyIndicator) }
         tabBarModel.status = status.joined(separator: "  ")
     }

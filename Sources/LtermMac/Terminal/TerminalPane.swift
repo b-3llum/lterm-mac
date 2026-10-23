@@ -10,6 +10,8 @@ final class TerminalPane: NSObject, Pane {
     weak var owner: PaneOwner?
     private(set) var title: String
     private var exited = false
+    /// Set while copy mode is on.
+    private(set) var copyMode: CopyModeController?
 
     var view: NSView { terminalView }
     var focusView: NSView { terminalView }
@@ -56,6 +58,19 @@ final class TerminalPane: NSObject, Pane {
         return withUnsafePointer(to: &info.pvi_cdir.vip_path) {
             $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) { String(cString: $0) }
         }
+    }
+
+    /// Starts copy mode. `onChange` runs on every move so the window can update its indicator.
+    func beginCopyMode(onChange: @escaping () -> Void) {
+        guard copyMode == nil else { return }
+        let controller = CopyModeController(view: terminalView)
+        controller.onChange = onChange
+        controller.onEnd = { [weak self] in
+            self?.copyMode = nil
+            onChange()
+        }
+        copyMode = controller
+        onChange()
     }
 
     func setFont(_ font: NSFont) {

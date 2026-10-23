@@ -14,6 +14,6 @@
 - Our own tab bar is used instead of native macOS window tabs, so tabs can show agent dots and work with the leader keys.
 - Scrollback search uses SwiftTerm's built-in find bar (Cmd+F, Cmd+G, Cmd+Shift+G, or Ctrl+Space /).
 - Settings live in UserDefaults: `defaults write com.b3llum.lterm-mac fontSize 14`, `fontName`, `leader` (for example `ctrl+a`). `LTERM_LEADER` overrides the leader.
-
-## Known gaps
+- Copy mode logic (motions, v/V selection, search, smart case) is plain Swift in LtermCore with tests. In the app it drives SwiftTerm's own selection, so the highlight looks the same as a mouse selection. The cursor is shown as a one-cell selection. Also supports ctrl-u / ctrl-d, and Return copies like y.
 - macOS uses Ctrl+Space for "Select previous input source" by default. If you have more than one keyboard input source, turn that shortcut off in System Settings > Keyboard > Keyboard Shortcuts > Input Sources, or pick another leader.
+- Copy mode counts columns in characters, so lines with wide characters (CJK, some emoji) can be off by a cell.
