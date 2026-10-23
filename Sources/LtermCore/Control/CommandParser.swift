@@ -30,6 +30,8 @@ public enum ParsedCommand: Equatable, Sendable {
     case version
     /// Add, remove or show agent hooks. Target is "claude", "codex" or nil for all.
     case integration(IntegrationAction, String?)
+    /// Print an image inline (iTerm2 protocol). Width is in terminal cells.
+    case image(path: String, width: Int?)
     /// Link the CLI into a folder on PATH.
     case install(directory: String?, force: Bool)
 }
@@ -101,6 +103,10 @@ public enum CommandParser {
             return .install(directory: directory, force: force)
         case "keys":
             return .help(Usage.keys)
+        case "img", "image":
+            let width = try args.value("--width", "-w").map { try positiveInt($0, "--width") }
+            guard let file = try args.positionals().first else { throw ParseError("usage: lterm img FILE [--width CELLS]") }
+            return .image(path: absolute(file, cwd: environment["PWD"]), width: width)
         default:
             throw ParseError("unknown command '\(command)'. Run 'lterm --help'.")
         }

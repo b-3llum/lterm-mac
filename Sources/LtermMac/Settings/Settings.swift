@@ -14,6 +14,12 @@ enum Settings {
         set { defaults.set(Double(min(max(newValue, 6), 48)), forKey: "fontSize") }
     }
 
+    /// Lines of scrollback per pane, `scrollback` default (10000 if unset).
+    static var scrollback: Int {
+        let value = defaults.integer(forKey: "scrollback")
+        return value > 0 ? min(value, 1_000_000) : 10_000
+    }
+
     /// Font family, `fontName` default. Falls back to the system monospaced font.
     static var font: NSFont {
         if let name = defaults.string(forKey: "fontName"), let font = NSFont(name: name, size: fontSize) {

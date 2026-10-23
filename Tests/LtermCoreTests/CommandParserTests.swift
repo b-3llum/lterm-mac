@@ -105,6 +105,8 @@ final class CommandParserTests: XCTestCase {
         assertError(["integration", "install"], contains: "usage")
         assertError(["integration", "install", "vim"], contains: "unknown integration")
         XCTAssertEqual(try CommandParser.parse(["--version"]), .version)
+        XCTAssertEqual(try CommandParser.parse(["img", "a.png", "--width", "20"], environment: inPane),
+                       .image(path: "/tmp/work/a.png", width: 20))
         if case .help = try CommandParser.parse(["pane", "--help"]) {} else { XCTFail("pane --help") }
         if case .help = try CommandParser.parse(["pane", "read", "--help"]) {} else { XCTFail("pane read --help") }
         assertError(["frobnicate"], contains: "unknown command")

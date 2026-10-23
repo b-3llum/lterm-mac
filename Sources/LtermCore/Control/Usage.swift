@@ -19,6 +19,7 @@ public enum Usage {
       lterm integration              show what is installed
       lterm install [--dir DIR] [--force]
                                      link this tool into ~/.local/bin (or DIR)
+      lterm img FILE [--width CELLS] show an image in the terminal (iTerm2 inline image protocol)
       lterm keys                     list the keyboard shortcuts
       lterm --version
 

@@ -20,7 +20,8 @@ final class TerminalPane: NSObject, Pane {
 
     init(id: Int) {
         self.id = id
-        terminalView = LtermTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
+        terminalView = LtermTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500), font: Settings.font,
+                                         options: TerminalOptions(scrollback: Settings.scrollback))
         title = (Shell.loginShell as NSString).lastPathComponent
         super.init()
         terminalView.processDelegate = self
@@ -52,6 +53,10 @@ final class TerminalPane: NSObject, Pane {
         var extra = extraEnvironment
         extra[Lterm.paneIDEnv] = String(id)
         if let socket = AppState.shared.socketPath { extra[Lterm.socketEnv] = socket }
+        for (key, value) in ShellIntegration.environment(shell: shell, currentEnvironment: ProcessInfo.processInfo.environment)
+            where extra[key] == nil {
+            extra[key] = value
+        }
         let env = Shell.environment(extra: extra)
         var args: [String] = []
         if let command {

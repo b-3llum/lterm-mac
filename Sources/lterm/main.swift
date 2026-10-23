@@ -29,6 +29,14 @@ case .help(let text):
 case .version:
     print("lterm \(Lterm.version)")
     exit(0)
+case .image(let path, let width):
+    guard let data = FileManager.default.contents(atPath: path) else { fail("cannot read \(path)") }
+    let name = Data((path as NSString).lastPathComponent.utf8).base64EncodedString()
+    let size = width.map { ";width=\($0)" } ?? ""
+    // OSC 1337 File=...: the iTerm2 inline image protocol, which SwiftTerm draws.
+    let sequence = "\u{1B}]1337;File=name=\(name);size=\(data.count);inline=1\(size):\(data.base64EncodedString())\u{07}\n"
+    FileHandle.standardOutput.write(Data(sequence.utf8))
+    exit(0)
 case .install(let directory, let force):
     Installer.install(into: directory, force: force)
     exit(0)
