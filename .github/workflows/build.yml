@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show tools
         run: |
@@ -38,7 +38,7 @@ jobs:
           "$APP/Contents/Resources/bin/lterm" --version
           ditto -c -k --keepParent "$APP" lterm-mac.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lterm-mac-debug
           path: lterm-mac.zip
