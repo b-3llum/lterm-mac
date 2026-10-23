@@ -144,6 +144,22 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         return pane
     }
 
+    /// Opens a browser pane split next to `target` (right, or below with `down`), or in a new tab.
+    func openBrowser(url: String, next target: Int?, down: Bool, newTab: Bool, focus shouldFocus: Bool) throws -> BrowserPane {
+        let pane = BrowserPane(id: AppState.shared.allocatePaneID())
+        if newTab || tabs.isEmpty {
+            addTab(with: pane)
+        } else {
+            let tab = tabs.first { $0.panes[target ?? -1] != nil } ?? currentTab!
+            let previous = tab.focused
+            insert(pane, splitting: target ?? tab.focused, axis: down ? .vertical : .horizontal, in: tab)
+            if !shouldFocus { if tab === currentTab { focus(previous) } else { tab.focused = previous } }
+        }
+        AppState.shared.lastBrowser = pane.id
+        try pane.load(url)
+        return pane
+    }
+
     /// Shows a Markdown file in a new tab, or split next to the focused pane.
     @discardableResult
     func openMarkdown(_ url: URL, split: Bool, next target: Int? = nil) -> MarkdownPane {
@@ -244,6 +260,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         tab.focused = id
         container.refresh()
         window?.makeFirstResponder(pane.focusView)
+        if pane is BrowserPane { AppState.shared.lastBrowser = id }
         markFocusedSeen()
         updateTitle()
         updateTabBar()
@@ -334,6 +351,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
     /// Hook for modes that take over the keyboard (copy mode). Returns true when the key was used.
     func interceptKey(_ event: NSEvent) -> Bool {
         if let markdown = focusedPane as? MarkdownPane { return markdown.handleKey(event) }
+        if let browser = focusedPane as? BrowserPane { return browser.handleKey(event) }
         guard let copyMode = focusedTerminal?.copyMode else { return false }
         // Let Cmd shortcuts (Cmd+C, Cmd+W, ...) still reach the menu.
         if event.modifierFlags.contains(.command) { return false }

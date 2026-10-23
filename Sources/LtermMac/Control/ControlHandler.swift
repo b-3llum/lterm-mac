@@ -59,6 +59,17 @@ enum ControlHandler {
             let pane = window.openAttached(host: host, command: command)
             if request.caller == nil { NSApp.activate(ignoringOtherApps: true) }
             return ["id": .int(pane.id)]
+        case "browse.open":
+            guard let url = args["url"]?.string else { throw ControlError("missing URL") }
+            let target = targetPane(request)
+            let window = target?.window ?? (NSApp.delegate as! AppDelegate).openWindow()
+            let pane = try window.openBrowser(url: url, next: target?.pane.id, down: args["down"]?.bool == true,
+                                              newTab: args["tab"]?.bool == true, focus: request.caller == nil)
+            await pane.waitForLoad()
+            if let problem = pane.loadProblem { throw ControlError("pane \(pane.id): could not load \(url): \(problem)") }
+            return ["id": .int(pane.id)]
+        case let command where command.hasPrefix("browse."):
+            return try await browse(command, args)
         case "md.open":
             guard let path = args["path"]?.string else { throw ControlError("missing file") }
             var isFolder: ObjCBool = false
@@ -123,6 +134,67 @@ enum ControlHandler {
     }
 
     // MARK: Commands
+
+    /// The browser pane for a `browse` command: --pane, else the last one opened or focused.
+    private static func browser(_ args: [String: JSONValue]) throws -> BrowserPane {
+        if let id = args["id"]?.int {
+            guard let pane = AppState.shared.locate(pane: id)?.pane else { throw ControlError("no pane \(id)") }
+            guard let browser = pane as? BrowserPane else { throw ControlError("pane \(id) is not a browser pane") }
+            return browser
+        }
+        if let id = AppState.shared.lastBrowser, let browser = AppState.shared.locate(pane: id)?.pane as? BrowserPane {
+            return browser
+        }
+        throw ControlError("no browser pane. Start one with: lterm browse open URL")
+    }
+
+    private static func browse(_ command: String, _ args: [String: JSONValue]) async throws -> JSONValue {
+        let pane = try browser(args)
+        switch command {
+        case "browse.go":
+            try pane.load(args["url"]?.string ?? "")
+            await pane.waitForLoad()
+            if let problem = pane.loadProblem { throw ControlError("could not load: \(problem)") }
+            return .null
+        case "browse.click":
+            let clicked = try await pane.click(selector: args["selector"]?.string, text: args["text"]?.string,
+                                               x: args["x"]?.double, y: args["y"]?.double)
+            return ["text": .string("clicked " + clicked)]
+        case "browse.type":
+            _ = try await pane.type(selector: args["selector"]?.string, text: args["text"]?.string ?? "", enter: args["enter"]?.bool == true)
+            return .null
+        case "browse.wait":
+            let timeout = args["timeout"]?.double ?? 30
+            let found = try await pane.wait(text: args["text"]?.string, selector: args["selector"]?.string, timeout: timeout)
+            if !found {
+                throw ControlError("timed out after \(Int(timeout)) s waiting for " + (args["text"]?.string.map { "text \"\($0)\"" } ?? args["selector"]?.string ?? "?"))
+            }
+            return .null
+        case "browse.text":
+            return ["text": .string(try await pane.text(args["what"]?.string ?? "body"))]
+        case "browse.eval":
+            return ["text": .string(try await pane.evaluate(args["code"]?.string ?? ""))]
+        case "browse.shot":
+            guard let path = args["path"]?.string else { throw ControlError("missing file name") }
+            return ["text": .string(try await pane.screenshot(to: path))]
+        case "browse.back":
+            pane.webView.goBack()
+            await pane.waitForLoad()
+            return .null
+        case "browse.forward":
+            pane.webView.goForward()
+            await pane.waitForLoad()
+            return .null
+        case "browse.reload":
+            pane.webView.reload()
+            await pane.waitForLoad()
+            return .null
+        case "browse.url":
+            return ["text": .string(pane.webView.url?.absoluteString ?? "")]
+        default:
+            throw ControlError("unknown command '\(command)'")
+        }
+    }
 
     private static func split(_ request: ControlRequest) throws -> JSONValue {
         let args = request.args

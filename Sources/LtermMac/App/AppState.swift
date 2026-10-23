@@ -8,6 +8,8 @@ final class AppState {
     private(set) var windows: [TerminalWindowController] = []
     /// The control socket path once the server is listening.
     var socketPath: String?
+    /// The browser pane `lterm browse` talks to when no --pane is given: the last one opened or focused.
+    var lastBrowser: Int?
     private var nextPaneID = 1
     private var nextTabID = 1
 
