@@ -6,5 +6,14 @@
 - SwiftTerm is pinned to v1.20.0 (stable release from August 2026).
 - The `lterm` CLI is built as a separate target and copied into `lterm-mac.app/Contents/Resources/bin`. Panes get that folder on their PATH.
 - Build output goes to ~/Library (DerivedData and SwiftPM scratch), not the repo, because iCloud Desktop sync adds file attributes that break code signing.
+- Panes are a binary tree (`LayoutTree` in LtermCore). Moving between panes picks the neighbor by on-screen position, ties go to the top-left-most pane.
+- Resize (H J K L) moves the nearest divider that crosses that direction by 5%, like tmux. After one resize the same keys keep working for 1.5 s without the leader.
+- Pressing the leader twice sends the leader key itself to the program (Ctrl+Space is NUL).
+- New splits and tabs start in the focused shell's current folder (read from the process table, no shell setup needed).
+- Cmd+W closes the pane. The last pane closes the tab, the last tab closes the window. Cmd+Option+W closes the whole tab.
+- Our own tab bar is used instead of native macOS window tabs, so tabs can show agent dots and work with the leader keys.
+- Scrollback search uses SwiftTerm's built-in find bar (Cmd+F, Cmd+G, Cmd+Shift+G, or Ctrl+Space /).
+- Settings live in UserDefaults: `defaults write com.b3llum.lterm-mac fontSize 14`, `fontName`, `leader` (for example `ctrl+a`). `LTERM_LEADER` overrides the leader.
 
 ## Known gaps
+- macOS uses Ctrl+Space for "Select previous input source" by default. If you have more than one keyboard input source, turn that shortcut off in System Settings > Keyboard > Keyboard Shortcuts > Input Sources, or pick another leader.

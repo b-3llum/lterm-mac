@@ -2,11 +2,10 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var windows: [TerminalWindowController] = []
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainMenu.install()
-        newWindow(nil)
+        KeyRouter.shared.install()
+        openWindow()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -14,12 +13,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
-    @objc func newWindow(_ sender: Any?) {
-        let controller = TerminalWindowController()
-        controller.onClose = { [weak self, weak controller] in
-            self?.windows.removeAll { $0 === controller }
-        }
-        windows.append(controller)
+    /// Opens a new window and returns it.
+    @discardableResult
+    func openWindow(command: String? = nil, directory: String? = nil) -> TerminalWindowController {
+        let controller = TerminalWindowController(command: command, directory: directory)
+        AppState.shared.add(controller)
         controller.showWindow(nil)
+        return controller
+    }
+
+    @objc func newWindow(_ sender: Any?) {
+        openWindow()
     }
 }
