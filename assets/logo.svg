@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <!-- The lterm logo, translated from lterm's src/logo.rs (same shapes and colors, 0..1 scaled to 0..1000).
+       A dark rounded tile split into three panes; the main pane holds a prompt chevron and a cursor. -->
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1000">
+      <stop offset="0" stop-color="#1f2335"/>
+      <stop offset="1" stop-color="#111219"/>
+    </linearGradient>
+    <linearGradient id="chevron" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="700">
+      <stop offset="0" stop-color="#7aa2f7"/>
+      <stop offset="1" stop-color="#bb9af7"/>
+    </linearGradient>
+  </defs>
+  <rect x="30" y="30" width="940" height="940" rx="210" fill="url(#tile)"/>
+  <g fill="#24283b">
+    <rect x="110" y="120" width="500" height="760" rx="60"/>
+    <rect x="650" y="120" width="240" height="360" rx="60"/>
+    <rect x="650" y="520" width="240" height="360" rx="60"/>
+  </g>
+  <polyline points="220,340 380,500 220,660" fill="none" stroke="url(#chevron)" stroke-width="70"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="420" y="600" width="120" height="65" rx="12" fill="#f7768e"/>
+  <g stroke-width="45" stroke-linecap="round">
+    <line x1="710" y1="240" x2="830" y2="240" stroke="#9ece6a"/>
+    <line x1="710" y1="340" x2="780" y2="340" stroke="#e0af68"/>
+    <line x1="710" y1="640" x2="830" y2="640" stroke="#7dcfff"/>
+    <line x1="710" y1="740" x2="760" y2="740" stroke="#bb9af7"/>
+  </g>
+</svg>

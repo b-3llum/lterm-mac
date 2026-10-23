@@ -4,7 +4,7 @@ APP = $(DERIVED)/Build/Products/Debug/lterm-mac.app
 # SwiftPM build folder. Kept outside the repo because iCloud Desktop sync can touch files mid build.
 SPM_SCRATCH ?= $(HOME)/Library/Caches/lterm-mac/spm
 
-.PHONY: all project build cli test run release clean
+.PHONY: all project build cli test run release clean icon
 
 all: build
 
@@ -25,6 +25,10 @@ test:
 
 run: build
 	open $(APP)
+
+# Rebuilds the app icon from assets/logo.svg and assets/logo-small.svg.
+icon:
+	swift scripts/make-icon.swift
 
 clean:
 	rm -rf $(DERIVED) $(SPM_SCRATCH) .build $(PROJECT)

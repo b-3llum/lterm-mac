@@ -52,6 +52,7 @@ targets:
         PRODUCT_NAME: lterm-mac
         PRODUCT_BUNDLE_IDENTIFIER: com.b3llum.lterm-mac
         GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: lterm
         INFOPLIST_KEY_NSHumanReadableCopyright: "MIT License"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools

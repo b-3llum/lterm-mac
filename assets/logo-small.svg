@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <!-- The small-size lterm logo (lterm's src/logo.rs uses it below 40 px): no panes, a bigger prompt. -->
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1000">
+      <stop offset="0" stop-color="#24283b"/>
+      <stop offset="1" stop-color="#16161e"/>
+    </linearGradient>
+    <linearGradient id="chevron" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="700">
+      <stop offset="0" stop-color="#7aa2f7"/>
+      <stop offset="1" stop-color="#bb9af7"/>
+    </linearGradient>
+  </defs>
+  <rect x="30" y="30" width="940" height="940" rx="210" fill="url(#tile)"/>
+  <polyline points="240,280 480,500 240,720" fill="none" stroke="url(#chevron)" stroke-width="110"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="540" y="620" width="260" height="110" rx="20" fill="#f7768e"/>
+</svg>

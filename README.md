@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" width="96" alt="lterm logo"></p>
+
 # lterm-mac
 
 A native macOS version of [lterm](https://github.com/b-3llum/lterm), my terminal for Windows and Linux.
@@ -196,6 +198,10 @@ defaults write com.b3llum.lterm-mac shellIntegration -bool false
 
 Decisions I made along the way:
 
+- **Icon.** The original lterm draws its logo in code (`src/logo.rs`), so there was no SVG to copy. I
+  translated the same shapes and colors into `assets/logo.svg` (plus `logo-small.svg`, the simpler version
+  the original uses under 40 px). `make icon` renders the app icon from them. The tile is scaled to Apple's
+  icon grid so it is the same size as other Dock icons.
 - **App structure.** A plain AppKit app (main.swift and an app delegate, menus built in code). The pane
   area is AppKit because SwiftTerm views are NSViews. SwiftUI is used for the tab bar, the agents sidebar
   and the help sheet.
