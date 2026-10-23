@@ -1,0 +1,77 @@
+name: LtermMac
+options:
+  bundleIdPrefix: com.b3llum
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    SWIFT_STRICT_CONCURRENCY: complete
+packages:
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    exactVersion: 1.20.0
+  Lterm:
+    path: .
+targets:
+  LtermMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/LtermMac
+    dependencies:
+      - package: SwiftTerm
+      - package: Lterm
+        product: LtermCore
+      - target: lterm
+        embed: false
+        link: false
+    postBuildScripts:
+      - name: Embed lterm CLI
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - $(BUILT_PRODUCTS_DIR)/lterm
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/bin/lterm
+        script: |
+          mkdir -p "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bin"
+          cp -f "${BUILT_PRODUCTS_DIR}/lterm" "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/bin/lterm"
+    settings:
+      base:
+        PRODUCT_NAME: lterm-mac
+        PRODUCT_BUNDLE_IDENTIFIER: com.b3llum.lterm-mac
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: lterm
+        INFOPLIST_KEY_NSHumanReadableCopyright: "MIT License"
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_APP_SANDBOX: NO
+  lterm:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/lterm
+    dependencies:
+      - package: Lterm
+        product: LtermCore
+    settings:
+      base:
+        PRODUCT_NAME: lterm
+        SKIP_INSTALL: YES
+schemes:
+  LtermMac:
+    build:
+      targets:
+        LtermMac: all
+        lterm: all
+    run:
+      config: Debug
+      executable: LtermMac
