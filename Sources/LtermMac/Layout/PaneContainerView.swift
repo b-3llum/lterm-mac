@@ -1,24 +1,29 @@
 import AppKit
 import LtermCore
 
-/// Wraps one pane's view and draws the border around it.
+/// Wraps one pane's view and draws the border around it (focus or agent state).
 @MainActor
 final class PaneHostView: NSView {
     let pane: Pane
     static let borderWidth: CGFloat = 2
     static let padding: CGFloat = 4
 
-    var isFocused = false { didSet { if oldValue != isFocused { needsDisplay = true } } }
+    var isFocused = false { didSet { if oldValue != isFocused { updateBorder() } } }
     /// Shown when the tab has more than one pane.
-    var showsFocus = false { didSet { if oldValue != showsFocus { needsDisplay = true } } }
-    /// Border color set by the agent status code. Nil means no agent color.
-    var statusColor: NSColor? { didSet { needsDisplay = true } }
+    var showsFocus = false { didSet { if oldValue != showsFocus { updateBorder() } } }
+    /// Agent border. A change from done to fadedDone fades the green out.
+    var agentBorder: AgentStatus.Border = .none {
+        didSet { if oldValue != agentBorder { updateBorder(fade: oldValue == .done && agentBorder == .fadedDone) } }
+    }
 
     init(pane: Pane) {
         self.pane = pane
         super.init(frame: .zero)
         wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+        layer?.borderWidth = Self.borderWidth
         addSubview(pane.view)
+        updateBorder()
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -31,22 +36,30 @@ final class PaneHostView: NSView {
         pane.view.frame = bounds.insetBy(dx: inset, dy: inset)
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor(calibratedWhite: 0.06, alpha: 1).setFill()
-        bounds.fill()
-        let color: NSColor?
-        if let statusColor {
-            color = statusColor
-        } else if showsFocus && isFocused {
-            color = NSColor.controlAccentColor.withAlphaComponent(0.55)
-        } else {
-            color = nil
+    private var targetColor: NSColor {
+        switch agentBorder {
+        case .working: return AgentColors.working
+        case .blocked: return AgentColors.blocked
+        case .done: return AgentColors.done
+        case .none, .fadedDone:
+            return showsFocus && isFocused ? NSColor.controlAccentColor.withAlphaComponent(0.55) : .clear
         }
-        guard let color else { return }
-        color.setStroke()
-        let path = NSBezierPath(rect: bounds.insetBy(dx: Self.borderWidth / 2, dy: Self.borderWidth / 2))
-        path.lineWidth = Self.borderWidth
-        path.stroke()
+    }
+
+    private func updateBorder(fade: Bool = false) {
+        guard let layer else { return }
+        let color = targetColor.cgColor
+        if fade {
+            let animation = CABasicAnimation(keyPath: "borderColor")
+            animation.fromValue = layer.presentation()?.borderColor ?? layer.borderColor
+            animation.toValue = color
+            animation.duration = 2.5
+            animation.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            layer.add(animation, forKey: "fade")
+        } else {
+            layer.removeAnimation(forKey: "fade")
+        }
+        layer.borderColor = color
     }
 }
 

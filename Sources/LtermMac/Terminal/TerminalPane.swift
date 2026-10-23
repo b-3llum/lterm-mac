@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import SwiftTerm
+import LtermCore
 
 /// A pane running a process (by default the login shell) inside SwiftTerm.
 @MainActor
@@ -25,6 +26,22 @@ final class TerminalPane: NSObject, Pane {
         terminalView.processDelegate = self
         terminalView.font = Settings.font
         terminalView.optionAsMetaKey = true
+        registerNotificationHandlers()
+    }
+
+    /// OSC 9, 777 and 99 desktop notifications mark the pane as needing the user.
+    private func registerNotificationHandlers() {
+        let paneID = id
+        for code in [9, 777, 99] {
+            terminalView.getTerminal().registerOscHandler(code: code) { data in
+                guard let payload = String(bytes: data, encoding: .utf8),
+                      let text = AgentRules.notificationText(code: code, payload: payload) else { return }
+                // SwiftTerm parses output on the main queue (LocalProcess's default).
+                MainActor.assumeIsolated {
+                    AgentStore.shared.notify(pane: paneID, text: text)
+                }
+            }
+        }
     }
 
     /// Starts the login shell, or runs `command` through it when given.

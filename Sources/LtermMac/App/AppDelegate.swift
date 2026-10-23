@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        AppState.shared.activeWindow?.markFocusedSeen()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }

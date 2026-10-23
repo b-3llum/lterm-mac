@@ -11,6 +11,9 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
     private let container = PaneContainerView(frame: .zero)
     private var keyIndicator: String?
     private var isClosing = false
+    private var sidebarWidth: NSLayoutConstraint?
+    private var sidebarView: NSView?
+    private(set) var sidebarVisible = false
 
     var currentTab: Tab? { tabs.indices.contains(currentIndex) ? tabs[currentIndex] : nil }
     var focusedPane: Pane? { currentTab?.focusedPane }
@@ -42,10 +45,17 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
         let root = NSView()
         let tabBar = NSHostingView(rootView: TabBarView(model: tabBarModel))
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        container.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(tabBar)
-        root.addSubview(container)
+        let sidebar = NSHostingView(rootView: AgentsSidebarView(store: AgentStore.shared) { [weak self] id in
+            self?.jump(to: id)
+        })
+        for view in [tabBar, container, sidebar] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(view)
+        }
+        let width = sidebar.widthAnchor.constraint(equalToConstant: 0)
+        sidebarWidth = width
+        sidebarView = sidebar
+        sidebar.isHidden = true
         NSLayoutConstraint.activate([
             tabBar.topAnchor.constraint(equalTo: root.topAnchor),
             tabBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -53,8 +63,12 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
             tabBar.heightAnchor.constraint(equalToConstant: 28),
             container.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
             container.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            container.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             container.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            sidebar.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            sidebar.leadingAnchor.constraint(equalTo: container.trailingAnchor),
+            sidebar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            sidebar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            width,
         ])
         window.contentView = root
         tabBarModel.onSelect = { [weak self] index in self?.selectTab(index) }
@@ -138,6 +152,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         tab.tree.remove(id)
         tab.forget(id)
         pane.close()
+        AgentStore.shared.remove(pane: id)
         if tab.focused == id {
             let frames = tab.tree.frames(in: unit)
             let heir = oldCenter.flatMap { center in
@@ -158,6 +173,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         let tab = tabs.remove(at: index)
         for pane in tab.panes.values {
             pane.close()
+            AgentStore.shared.remove(pane: pane.id)
         }
         for id in tab.panes.keys { tab.forget(id) }
         if tabs.isEmpty {
@@ -192,7 +208,48 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         tab.focused = id
         container.refresh()
         window?.makeFirstResponder(pane.focusView)
+        markFocusedSeen()
         updateTitle()
+        updateTabBar()
+    }
+
+    /// The focused pane counts as looked at when this window is key and the app is active.
+    func markFocusedSeen() {
+        guard NSApp.isActive, window?.isKeyWindow == true, let id = currentTab?.focused else { return }
+        AgentStore.shared.markSeen(pane: id)
+    }
+
+    /// Focuses a pane in any window, bringing that window to the front.
+    func jump(to id: Int) {
+        guard let found = AppState.shared.locate(pane: id) else { return }
+        found.window.window?.makeKeyAndOrderFront(nil)
+        found.window.focus(id)
+    }
+
+    func toggleSidebar() {
+        sidebarVisible.toggle()
+        sidebarWidth?.constant = sidebarVisible ? 260 : 0
+        sidebarView?.isHidden = !sidebarVisible
+        AgentStore.shared.refreshEntries()
+    }
+
+    /// Ctrl+Space u: blocked panes first, then finished or notified ones, across all windows.
+    func jumpToNextNeedsMe() {
+        let current = AppState.shared.activeWindow?.currentTab?.focused
+        guard let next = AgentRules.nextNeedsMe(panes: AgentStore.shared.orderedStatuses, current: current) else {
+            NSSound.beep()
+            return
+        }
+        jump(to: next)
+    }
+
+    /// Agent states changed: refresh borders and the tab bar.
+    func agentsChanged() {
+        for tab in tabs {
+            for (id, host) in tab.hosts {
+                host.agentBorder = AgentStore.shared.status(of: id).border
+            }
+        }
         updateTabBar()
     }
 
@@ -282,7 +339,9 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         case .search: showFind()
         case .help: showHelp()
         case .copyMode: startCopyMode()
-        case .agentsSidebar, .nextNeedsMe, .detach:
+        case .agentsSidebar: toggleSidebar()
+        case .nextNeedsMe: jumpToNextNeedsMe()
+        case .detach:
             NSSound.beep()
         case .cancel:
             break
@@ -326,13 +385,21 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func updateTabBar() {
-        tabBarModel.items = tabs.map { TabBarItem(id: $0.id, title: $0.title, dot: nil) }
+        let store = AgentStore.shared
+        tabBarModel.items = tabs.map { tab in
+            let urgent = AgentRules.mostUrgent(tab.tree.leaves.map { store.status(of: $0) })
+            let dot = urgent.flatMap { AgentColors.color(for: $0) }.map { Color(nsColor: $0) }
+            return TabBarItem(id: tab.id, title: tab.title, dot: dot)
+        }
         tabBarModel.selected = currentIndex
         var status: [String] = []
+        let summary = AgentRules.summary(tabs.flatMap { $0.tree.leaves }.map { store.status(of: $0) })
+        if !summary.isEmpty { status.append(summary) }
         if let tab = currentTab, tab.zoomed != nil { status.append("zoom") }
         if let copyMode = focusedTerminal?.copyMode { status.append(copyMode.indicator) }
         if let keyIndicator { status.append(keyIndicator) }
         tabBarModel.status = status.joined(separator: "  ")
+        store.refreshEntries()
     }
 
     // MARK: Menu actions
@@ -353,6 +420,8 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
     @objc func resetFontAction(_ sender: Any?) { changeFont(by: nil) }
     @objc func copyModeAction(_ sender: Any?) { perform(.copyMode) }
     @objc func helpAction(_ sender: Any?) { showHelp() }
+    @objc func sidebarAction(_ sender: Any?) { toggleSidebar() }
+    @objc func nextNeedsMeAction(_ sender: Any?) { jumpToNextNeedsMe() }
 
     // MARK: Window
 
@@ -362,14 +431,17 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         for tab in tabs {
             for pane in tab.panes.values { pane.close() }
         }
+        for id in tabs.flatMap({ $0.panes.keys }) { AgentStore.shared.remove(pane: id) }
         tabs.removeAll()
         AppState.shared.remove(self)
+        AgentStore.shared.refreshEntries()
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
         if let id = currentTab?.focused, let pane = currentTab?.panes[id] {
             window?.makeFirstResponder(pane.focusView)
         }
+        markFocusedSeen()
     }
 }
 

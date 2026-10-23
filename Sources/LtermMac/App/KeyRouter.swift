@@ -53,6 +53,11 @@ final class KeyRouter {
                 setMode(.leader, controller)
                 return true
             }
+            if event.modifierFlags.intersection([.control, .shift, .option, .command]) == [.control, .shift],
+               event.charactersIgnoringModifiers?.lowercased() == "a" {
+                controller.toggleSidebar()
+                return true
+            }
             return controller.interceptKey(event)
         case .leader:
             setMode(.normal, controller)

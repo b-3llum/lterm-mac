@@ -44,6 +44,9 @@ enum MainMenu {
         item(view, "Bigger ", #selector(TerminalWindowController.biggerFontAction(_:)), "+").isHidden = true
         item(view, "Smaller", #selector(TerminalWindowController.smallerFontAction(_:)), "-")
         item(view, "Actual Size", #selector(TerminalWindowController.resetFontAction(_:)), "0")
+        view.addItem(.separator())
+        item(view, "Agents Sidebar", #selector(TerminalWindowController.sidebarAction(_:)), "a", [.control, .shift])
+        item(view, "Next Agent That Needs Me", #selector(TerminalWindowController.nextNeedsMeAction(_:)), "u", [.control, .shift])
 
         let windowMenu = submenu(in: main, title: "Window")
         item(windowMenu, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")
