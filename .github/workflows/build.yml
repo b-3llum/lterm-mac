@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show tools
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Get the Metal toolchain if missing
+        # SwiftTerm ships a Metal shader. Newer Xcodes download the Metal compiler separately.
+        run: xcrun metal --version >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
+
+      - name: Unit tests (layout tree, CLI parser, copy mode, agents, integrations)
+        run: swift test
+
+      - name: Build the app and the lterm tool
+        run: make build
+
+      - name: Check the bundle
+        run: |
+          APP="$HOME/Library/Developer/Xcode/DerivedData/lterm-mac/Build/Products/Debug/lterm-mac.app"
+          test -x "$APP/Contents/MacOS/lterm-mac"
+          "$APP/Contents/Resources/bin/lterm" --version
+          ditto -c -k --keepParent "$APP" lterm-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lterm-mac-debug
+          path: lterm-mac.zip
