@@ -47,6 +47,17 @@ enum ControlHandler {
                 pane.send(bytes: bytes)
             }
             return .null
+        case "md.open":
+            guard let path = args["path"]?.string else { throw ControlError("missing file") }
+            var isFolder: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: path, isDirectory: &isFolder), !isFolder.boolValue else {
+                throw ControlError("no such file: \(path)")
+            }
+            let target = targetPane(request)
+            let window = target?.window ?? (NSApp.delegate as! AppDelegate).openWindow()
+            let pane = window.openMarkdown(URL(fileURLWithPath: path), split: args["split"]?.bool == true, next: target?.pane.id)
+            if request.caller == nil { NSApp.activate(ignoringOtherApps: true) }
+            return ["id": .int(pane.id)]
         case "pane.wait":
             return try await wait(args)
         case "pane.close":

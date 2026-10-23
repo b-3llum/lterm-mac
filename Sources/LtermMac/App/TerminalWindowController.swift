@@ -135,6 +135,18 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
         return pane
     }
 
+    /// Shows a Markdown file in a new tab, or split next to the focused pane.
+    @discardableResult
+    func openMarkdown(_ url: URL, split: Bool, next target: Int? = nil) -> MarkdownPane {
+        let pane = MarkdownPane(id: AppState.shared.allocatePaneID(), fileURL: url)
+        if split, let tab = tabs.first(where: { $0.panes[target ?? -1] != nil }) ?? currentTab {
+            insert(pane, splitting: target ?? tab.focused, axis: .horizontal, in: tab)
+        } else {
+            addTab(with: pane)
+        }
+        return pane
+    }
+
     /// Puts any pane next to `target` in `tab` and focuses it.
     func insert(_ pane: Pane, splitting target: Int, axis: SplitAxis, in tab: Tab) {
         pane.owner = self
@@ -312,6 +324,7 @@ final class TerminalWindowController: NSWindowController, NSWindowDelegate {
 
     /// Hook for modes that take over the keyboard (copy mode). Returns true when the key was used.
     func interceptKey(_ event: NSEvent) -> Bool {
+        if let markdown = focusedPane as? MarkdownPane { return markdown.handleKey(event) }
         guard let copyMode = focusedTerminal?.copyMode else { return false }
         // Let Cmd shortcuts (Cmd+C, Cmd+W, ...) still reach the menu.
         if event.modifierFlags.contains(.command) { return false }

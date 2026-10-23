@@ -17,6 +17,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
     exactVersion: 1.20.0
+  SwiftMarkdown:
+    url: https://github.com/swiftlang/swift-markdown
+    exactVersion: 0.8.0
   Lterm:
     path: .
 targets:
@@ -27,6 +30,8 @@ targets:
       - path: Sources/LtermMac
     dependencies:
       - package: SwiftTerm
+      - package: SwiftMarkdown
+        product: Markdown
       - package: Lterm
         product: LtermCore
       - target: lterm
